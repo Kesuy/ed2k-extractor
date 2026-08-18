@@ -60,19 +60,18 @@ jobs:
           $clip = Get-Clipboard -Raw
           if ($clip -notmatch 'clipboard-test\.mp4') { throw "Clipboard copy failed" }
 
-      - name: Smoke test RAR
+      - name: Smoke test real RAR and clipboard
         shell: pwsh
         run: |
           Remove-Item smoke\@ed2k.txt -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force smoke\rar-src | Out-Null
-          Set-Content -Path smoke\rar-src\inside.txt -Encoding UTF8 -Value 'ed2k://|file|rar-test.mp4|456|FEDCBA9876543210FEDCBA9876543210|/'
-          & 'C:\Program Files\7-Zip\7z.exe' a -trar smoke\sample.rar smoke\rar-src\inside.txt | Out-Null
-          cmd /c "echo.| smoke\ed2k-extractor.exe smoke\sample.rar"
+          [IO.File]::WriteAllBytes('smoke\486.rar', [Convert]::FromBase64String('UmFyIRoHAM+QcwAADQAAAAAAAABM2XQgkDIAKAIAAM8CAAAChQEKcymYe1wdMw0AIAAAAGZjNDg2MDEzNC50eHQAsFt3Kw3dUdCI/RwVe+yXwfZL0r0XTf7N16bRDSXssh03tUNHS1KkElFJvQGgWrBKFha20CqCylJBAtllsIoJ4wP7dDqfBbFaDuuh+KVI9a+A505MmZzn3Mzx/Jn88mTOZnJ8+9fJzwbl4rYJclWn+OWzNzPI2HGNG8ubmPHCOpBcPkEHSvv3bkWVgqK6O3JRpgw5JWaJchy1Y1HpfcGRSfu3tuZe+csFaaCPwLOQGuunAC1MuRKgJVdSNOvpV9SvolxOqwXGwW5zflcayvH7QfUMif9RuZhBOL0JngJWVMLjksVQezhWfxBV+HS8eCnOD/NhmiCeERu1I6gfpd2M7CYJ/CJ3+9ji79t8G/MBX9au9ZDp6MCA+1c5kyg4AXWRdCwIOS75LVAFuPeobCnyrjjl4aooJlFTZk3YtperbC9O9O3lf3UY+kXbOywPtApJqbk9bSQ2uiu1JGKbY569Dm5c/E0nkUhohCFbFYG1HUoWQWZXZTsNf3B9IYR3qQg6I9ARKTt5poJOjS9IuE9gjEkFf/tIukg8haMDzjCv9B+kt2ZxpRJa+JNWpZJp7bPb54zcYY0dm0PbnhxmmBZmtSWiTLIGZQV2lt4rOLu4FFHCcwwK51Hvjy/3Feviv8EkFnHMfpGYTGg7Ywosw5ocSsSRjzxiiCDGxzY04ci/7C7lF4g/xuLVrn3tdwJnCdfyutIxiGXid+rT10dEzQe6xRg8LVfIE6/pxtn8QIWldCCSQAAkAAAAJAAAAAKE0jE0KZh7XB0wGwAgAAAAveKJusPctGEudHh0AIlq49NYxlu8eAAudHh0ALBbdyvvu7/op6Plo5Plr4bnorzvvJpodHRwczovL3d3dy54aGQudHfEPXsAQAcADQo='))
+          Set-Clipboard -Value 'SENTINEL-RAR'
+          cmd /c "echo.| smoke\ed2k-extractor.exe smoke\486.rar"
           if (!(Test-Path smoke\@ed2k.txt)) { throw "RAR @ed2k.txt was not created" }
           $file = Get-Content smoke\@ed2k.txt -Raw
-          if ($file -notmatch 'rar-test\.mp4') { throw "RAR extraction failed" }
+          if ($file -notmatch 'fc4860134\.mp4') { throw "Real RAR extraction failed" }
           $clip = Get-Clipboard -Raw
-          if ($clip -notmatch 'rar-test\.mp4') { throw "RAR clipboard copy failed" }
+          if ($clip -notmatch 'fc4860134\.mp4') { throw "RAR clipboard copy failed" }
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
