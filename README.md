@@ -14,12 +14,19 @@
 - 仅保留同时包含 `ed2k` 和 `.mp4` 的整行（大小写不敏感）
 - ED2K 自动去重，并保留首次出现顺序
 - 输出固定保存为 EXE 同目录的 `@ed2k.txt`
+- **v1.1.0 起：生成 TXT 后同步把全部去重结果复制到 Windows 剪贴板，一条链接一行**
+- 如果本次没有提取到 ED2K，不会覆盖原来的 Windows 剪贴板内容
 
 ## 使用
 
 ### 方式 1：拖拽
 
 把一个或多个 `.txt` / `.zip` / `.rar` 文件拖到 `ed2k-extractor.exe` 上。
+
+处理结束后：
+
+1. 结果保存到 EXE 同目录的 `@ed2k.txt`
+2. 同一份结果自动复制到 Windows 剪贴板，可直接粘贴到下载工具中
 
 ### 方式 2：双击
 
@@ -65,4 +72,4 @@ dist\ed2k-extractor.exe
 
 ## Release
 
-推送 `v*` 标签时，GitHub Actions 会自动构建 Windows 单文件 EXE，并上传到对应 GitHub Release。
+GitHub Actions 会构建 Windows 单文件 EXE，并在发布前执行 TXT、RAR 与 Windows 剪贴板 smoke test。
