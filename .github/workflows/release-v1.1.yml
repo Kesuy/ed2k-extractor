@@ -1,0 +1,116 @@
+name: Release v1.1.0
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "ed2k_extractor.py"
+      - ".github/workflows/release-v1.1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          choco install 7zip -y --no-progress
+
+      - name: Build EXE with bundled 7-Zip
+        shell: pwsh
+        run: |
+          $z = "C:\Program Files\7-Zip"
+          if (!(Test-Path "$z\7z.exe") -or !(Test-Path "$z\7z.dll")) {
+            throw "7-Zip executable or DLL not found"
+          }
+          python -m PyInstaller --noconfirm --clean --onefile --console `
+            --python-option "X utf8" `
+            --name ed2k-extractor `
+            --add-binary "$z\7z.exe;." `
+            --add-binary "$z\7z.dll;." `
+            ed2k_extractor.py
+
+      - name: Smoke test TXT and clipboard
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force smoke | Out-Null
+          Copy-Item dist\ed2k-extractor.exe smoke\ed2k-extractor.exe
+          Set-Content -Path smoke\sample.txt -Encoding UTF8 -Value 'ed2k://|file|clipboard-test.mp4|123|0123456789ABCDEF0123456789ABCDEF|/'
+          Set-Clipboard -Value 'SENTINEL'
+          cmd /c "echo.| smoke\ed2k-extractor.exe smoke\sample.txt"
+          if (!(Test-Path smoke\@ed2k.txt)) { throw "@ed2k.txt was not created" }
+          $file = Get-Content smoke\@ed2k.txt -Raw
+          if ($file -notmatch 'clipboard-test\.mp4') { throw "TXT extraction failed" }
+          $clip = Get-Clipboard -Raw
+          if ($clip -notmatch 'clipboard-test\.mp4') { throw "Clipboard copy failed" }
+
+      - name: Smoke test RAR
+        shell: pwsh
+        run: |
+          Remove-Item smoke\@ed2k.txt -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force smoke\rar-src | Out-Null
+          Set-Content -Path smoke\rar-src\inside.txt -Encoding UTF8 -Value 'ed2k://|file|rar-test.mp4|456|FEDCBA9876543210FEDCBA9876543210|/'
+          & 'C:\Program Files\7-Zip\7z.exe' a -trar smoke\sample.rar smoke\rar-src\inside.txt | Out-Null
+          cmd /c "echo.| smoke\ed2k-extractor.exe smoke\sample.rar"
+          if (!(Test-Path smoke\@ed2k.txt)) { throw "RAR @ed2k.txt was not created" }
+          $file = Get-Content smoke\@ed2k.txt -Raw
+          if ($file -notmatch 'rar-test\.mp4') { throw "RAR extraction failed" }
+          $clip = Get-Clipboard -Raw
+          if ($clip -notmatch 'rar-test\.mp4') { throw "RAR clipboard copy failed" }
+
+      - name: Upload Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ed2k-extractor-v1.1.0-windows
+          path: dist/ed2k-extractor.exe
+          if-no-files-found: error
+
+      - name: Publish or refresh v1.1.0 Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v1.1.0 *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload v1.1.0 dist\ed2k-extractor.exe --clobber
+          } else {
+            gh release create v1.1.0 dist\ed2k-extractor.exe `
+              --target "${{ github.sha }}" `
+              --title "ED2K Extractor v1.1.0" `
+              --notes "新增：生成 @ed2k.txt 后自动将去重后的 ED2K 链接复制到 Windows 剪贴板；无结果时不覆盖原剪贴板。继续支持 TXT/ZIP/RAR、RAR5/Unicode/分卷首卷和内置 7-Zip。"
+          }
+
+      - name: Record v1.1.0 status
+        if: always()
+        shell: pwsh
+        run: |
+          $result = [ordered]@{
+            status = "${{ job.status }}"
+            tag = "v1.1.0"
+            commit = "${{ github.sha }}"
+            run_id = "${{ github.run_id }}"
+            updated_at_utc = (Get-Date).ToUniversalTime().ToString("o")
+          } | ConvertTo-Json
+          Set-Content -Path release-v1.1-status.json -Value $result -Encoding UTF8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release-v1.1-status.json
+          git commit -m "chore: record v1.1 release status [skip ci]" || exit 0
+          git pull --rebase origin main
+          git push origin HEAD:main
