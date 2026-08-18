@@ -55,7 +55,7 @@ jobs:
             --add-binary "$z\7z.dll;." `
             ed2k_extractor.py
 
-      - name: Smoke test EXE
+      - name: Smoke test TXT
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force smoke | Out-Null
@@ -66,7 +66,21 @@ jobs:
           cmd /c "echo.| smoke\ed2k-extractor.exe smoke\sample.txt"
           if (!(Test-Path smoke\@ed2k.txt)) { throw "@ed2k.txt was not created" }
           $content = Get-Content smoke\@ed2k.txt -Raw
-          if ($content -notmatch 'ed2k://\|file\|sample\.mp4') { throw "ED2K extraction smoke test failed" }
+          if ($content -notmatch 'ed2k://\|file\|sample\.mp4') { throw "TXT extraction smoke test failed" }
+
+      - name: Regression test real RAR files
+        shell: pwsh
+        run: |
+          Remove-Item smoke\@ed2k.txt -ErrorAction SilentlyContinue
+          [IO.File]::WriteAllBytes('smoke\486.rar', [Convert]::FromBase64String('UmFyIRoHAM+QcwAADQAAAAAAAABM2XQgkDIAKAIAAM8CAAAChQEKcymYe1wdMw0AIAAAAGZjNDg2MDEzNC50eHQAsFt3Kw3dUdCI/RwVe+yXwfZL0r0XTf7N16bRDSXssh03tUNHS1KkElFJvQGgWrBKFha20CqCylJBAtllsIoJ4wP7dDqfBbFaDuuh+KVI9a+A505MmZzn3Mzx/Jn88mTOZnJ8+9fJzwbl4rYJclWn+OWzNzPI2HGNG8ubmPHCOpBcPkEHSvv3bkWVgqK6O3JRpgw5JWaJchy1Y1HpfcGRSfu3tuZe+csFaaCPwLOQGuunAC1MuRKgJVdSNOvpV9SvolxOqwXGwW5zflcayvH7QfUMif9RuZhBOL0JngJWVMLjksVQezhWfxBV+HS8eCnOD/NhmiCeERu1I6gfpd2M7CYJ/CJ3+9ji79t8G/MBX9au9ZDp6MCA+1c5kyg4AXWRdCwIOS75LVAFuPeobCnyrjjl4aooJlFTZk3YtperbC9O9O3lf3UY+kXbOywPtApJqbk9bSQ2uiu1JGKbY569Dm5c/E0nkUhohCFbFYG1HUoWQWZXZTsNf3B9IYR3qQg6I9ARKTt5poJOjS9IuE9gjEkFf/tIukg8haMDzjCv9B+kt2ZxpRJa+JNWpZJp7bPb54zcYY0dm0PbnhxmmBZmtSWiTLIGZQV2lt4rOLu4FFHCcwwK51Hvjy/3Feviv8EkFnHMfpGYTGg7Ywosw5ocSsSRjzxiiCDGxzY04ci/7C7lF4g/xuLVrn3tdwJnCdfyutIxiGXid+rT10dEzQe6xRg8LVfIE6/pxtn8QIWldCCSQAAkAAAAJAAAAAKE0jE0KZh7XB0wGwAgAAAAveKJusPctGEudHh0AIlq49NYxlu8eAAudHh0ALBbdyvvu7/op6Plo5Plr4bnorzvvJpodHRwczovL3d3dy54aGQudHfEPXsAQAcADQo='))
+          [IO.File]::WriteAllBytes('smoke\487.rar', [Convert]::FromBase64String('UmFyIRoHAM+QcwAADQAAAAAAAAA1MXQgkDIAKQIAANECAAACyWrduMaFk1wdMw0AIAAAAGZjNDg3MDY3MS50eHQA8J0TMA3dUUyM/RgRd9Svg4ldMmisbBsbc02iBtXZUjTdsQOVu2ygiHwlSNAMhKCAsipVLVAtgQtIKinxUVqLBkPGA62zVPBaj4U+DHOtFgqrpt8B7p6udzvOf8zPH8SzmZxZmczMX7nNX/wjrsWgbs1Srz9aW/peJyMKUL49PSQdHvYbp8cc8U93Bbj7mKpZU1nY5RIrYkbTT2p9uNejVLcWMp1ey5+OhYFgPQHNYwuTB/p0XyOFtfpStox707vNsZ7Vi/PC+t2PVBzy8s1rsWnemK9SQffJuIMXcr8YPX05H7wSdvGrDRlYE90Z5AosRsabhcC9EZl32Rrhos/7A490FdEFDpZd3uMcV4qYKc4HLtqcKQbWPgQH2xqM2cPECbJ7wSBDz1NyzRBakXaMlP4cowxCdCOCdSTlTVY9nLVrMvVuz+FT71lzZaqUrMPMBURT+VDJpoa/Bla0sEiTd3pfYBv6P9bio53QUQg6lfkBMkJ0UgJbn8tq9fMD4xQjiyDnjTzhFRNZD0HRIL2EVD83l9Qo4xP7zSIOg2PF2H+yI/1X8RqQW2GaEtSWkQ1qKa3HLMHIblEY3I3DkKTdyPiiSDTDIjPOFaA9Wpvdllj/8Eee8KFFEdvdfw6N4E13w7AAggrMiXgGOSMlMLKLFJxZY5LhY65xi8LnKBoxq5v9AMy7s9A5+xJs2b9/zeWWoy7dkdrOwJZ+A+E/G9KEEuG2gwjkL7VWiSxFflB2oHQgkkAAJAAAACQAAAAChNIxNMaFk1wdMBsAIAAAAL3iibrD3LRhLnR4dACJauPTWMZbvHgALnR4dADwnRMw77u/6Kej5aOT5a+G56K877yaaHR0cHM6Ly93d3cueGhkLnR3xD17AEAHAA0K'))
+          [IO.File]::WriteAllBytes('smoke\488.rar', [Convert]::FromBase64String('UmFyIRoHAM+QcwAADQAAAAAAAAAnz3QgkDIAJQIAANECAAACsNmrCjeOoVwdMw0AIAAAAGZjNDg4MTE2Ni50eHQA8Pw7hQ3dUUyM/RgRd9Svg4ldMmisbH8pNNoMBXZUjTdtoErFQQUgIqE9B8ISgiFJaVS1QLIBFQiQpCVRWosGQ8YDrbNU8FqYEI2x1tFgqrps8B7p6sXM5z/mZ4/1LOd5zMWczMX7/zVzwjqu3wbtBDj+3Udv6nkbiBlB+XV1HzoyDGdQnr14h8eHBLo5qsomw7GKKEEII1cEm0CjbP2qaYo5VjBIkodPuw/nnVNdywOa71uXJvrz40rrbSVbBKlpUvAT2HwB7zl/yh2Uq6seDselJdTZBN28aelOyKa8nDc5Ae3oTfydOPNlmIUmhkcK1Ell4WTktoqP7g5N0FyUCp0Mu/3mPI2eIHFSBb20K5y+PjIkSFs67NnGzAXsMeBRI2hHDeqgvzMVWaf87eUOfUlgpVj51BGXeUq/nX48VOuh+LSwM9E6dnH3AWJR/BUT1BddkkbU8Eybi3p+KRv6b3BIlaHa9FcIQucoNyYfVOAdR/tsWr5gfSQuNqoevGnqXFm7D5+9NitIYsb0CRwxmhH83EKPrDxIPphQAofnhmiitCVMJHKDNDI1lNEJcEtix2w6YajDEFtSSyySk6M3HNZ6ArSHI2N792Xe7gzDHmeYMJ3BgePT3AUCEMwAWdDWWFINcuRFRKXmlsHJRaip1YsVqpTclyKW4Ebf4AzruzHz2GxKvXsf/9zTLXZdvT/a0MCmfifw3cB+rd5AVjB2fXFiRYo8diK/SKQWdCCSQAAkAAAAJAAAAAKE0jE0N46hXB0wGwAgAAAAveKJusPctGEudHh0AIlq49NYxlu8eAAudHh0APD8O4Xvu7/op6Plo5Plr4bnorzvvJpodHRwczovL3d3dy54aGQudHfEPXsAQAcADQo='))
+          cmd /c "echo.| smoke\ed2k-extractor.exe smoke\486.rar smoke\487.rar smoke\488.rar"
+          if (!(Test-Path smoke\@ed2k.txt)) { throw "RAR @ed2k.txt was not created" }
+          $content = Get-Content smoke\@ed2k.txt -Raw
+          @('fc4860134.mp4', 'fc4870671.mp4', 'fc4881166.mp4') | ForEach-Object {
+            if ($content -notmatch [regex]::Escape($_)) { throw "RAR regression failed: missing $_" }
+          }
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
