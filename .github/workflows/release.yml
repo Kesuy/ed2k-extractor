@@ -97,3 +97,22 @@ jobs:
             --target "${{ github.sha }}" `
             --title "ED2K Extractor v1.0.0" `
             --notes "首个发布版：支持 TXT/ZIP/RAR 拖拽与目录扫描；RAR5/Unicode/分卷首卷；内置 7-Zip；ED2K 自动去重；输出到 EXE 同目录的 @ed2k.txt。"
+
+      - name: Record workflow result
+        if: always() && github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          $result = [ordered]@{
+            status = "${{ job.status }}"
+            tag = "$env:INITIAL_RELEASE_TAG"
+            commit = "${{ github.sha }}"
+            run_id = "${{ github.run_id }}"
+            updated_at_utc = (Get-Date).ToUniversalTime().ToString("o")
+          } | ConvertTo-Json
+          Set-Content -Path release-status.json -Value $result -Encoding UTF8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release-status.json
+          git commit -m "chore: record release status [skip ci]" || exit 0
+          git pull --rebase origin main
+          git push origin HEAD:main
