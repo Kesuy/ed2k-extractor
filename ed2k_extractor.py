@@ -3,11 +3,12 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 from pathlib import Path
 
 APP_NAME = "ED2K Extractor"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 OUTPUT_NAME = "@ed2k.txt"
 SUPPORTED_EXTS = {".txt", ".zip", ".rar"}
 
@@ -56,6 +57,88 @@ def dedupe_keep_order(items: list[str]) -> list[str]:
             seen.add(item)
             result.append(item)
     return result
+
+
+def copy_links_to_clipboard(links: list[str]) -> tuple[bool, str]:
+    """将提取结果复制到 Windows Unicode 剪贴板；无结果时不覆盖原剪贴板。"""
+    if not links:
+        return False, "没有 ED2K 结果，未覆盖原剪贴板"
+
+    if os.name != "nt":
+        return False, "当前不是 Windows，跳过剪贴板复制"
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+        CF_UNICODETEXT = 13
+        GMEM_MOVEABLE = 0x0002
+
+        user32.OpenClipboard.argtypes = [wintypes.HWND]
+        user32.OpenClipboard.restype = wintypes.BOOL
+        user32.EmptyClipboard.argtypes = []
+        user32.EmptyClipboard.restype = wintypes.BOOL
+        user32.SetClipboardData.argtypes = [wintypes.UINT, ctypes.c_void_p]
+        user32.SetClipboardData.restype = ctypes.c_void_p
+        user32.CloseClipboard.argtypes = []
+        user32.CloseClipboard.restype = wintypes.BOOL
+
+        kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+        kernel32.GlobalAlloc.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalUnlock.restype = wintypes.BOOL
+        kernel32.GlobalFree.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalFree.restype = ctypes.c_void_p
+
+        text = "\r\n".join(links)
+        raw = (text + "\0").encode("utf-16-le")
+
+        opened = False
+        for _ in range(20):
+            if user32.OpenClipboard(None):
+                opened = True
+                break
+            time.sleep(0.05)
+
+        if not opened:
+            return False, "无法打开 Windows 剪贴板"
+
+        handle = None
+        ownership_transferred = False
+        try:
+            if not user32.EmptyClipboard():
+                return False, "无法清空 Windows 剪贴板"
+
+            handle = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(raw))
+            if not handle:
+                return False, "剪贴板内存分配失败"
+
+            pointer = kernel32.GlobalLock(handle)
+            if not pointer:
+                return False, "剪贴板内存锁定失败"
+
+            try:
+                ctypes.memmove(pointer, raw, len(raw))
+            finally:
+                kernel32.GlobalUnlock(handle)
+
+            if not user32.SetClipboardData(CF_UNICODETEXT, handle):
+                return False, "写入 Windows 剪贴板失败"
+
+            ownership_transferred = True
+            return True, f"已复制 {len(links)} 条 ED2K 到 Windows 剪贴板"
+        finally:
+            user32.CloseClipboard()
+            if handle and not ownership_transferred:
+                kernel32.GlobalFree(handle)
+
+    except Exception as exc:
+        return False, f"剪贴板复制失败：{exc}"
 
 
 def print_found(source_type: str, source_name: str, inner_name: str | None, links: list[str]) -> None:
@@ -355,6 +438,8 @@ def main() -> None:
         print(exc)
         return
 
+    clipboard_ok, clipboard_message = copy_links_to_clipboard(unique_links)
+
     print("\n" + "=" * 72)
     print("扫描统计")
     print(f"  TXT 文件：{file_counts['.txt']}")
@@ -366,6 +451,7 @@ def main() -> None:
     print(f"  去除重复：{duplicate_count}")
     print(f"  读取失败：{failed_count}")
     print(f"  输出文件：{output}")
+    print(f"  剪贴板：{clipboard_message}")
     print("=" * 72)
 
 
