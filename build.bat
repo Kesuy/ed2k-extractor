@@ -16,6 +16,7 @@ if not defined SEVENZIP (
 
 python -m pip install -r requirements.txt
 python -m PyInstaller --noconfirm --clean --onefile --console ^
+  --python-option "X utf8" ^
   --name ed2k-extractor ^
   --add-binary "%SEVENZIP%7z.exe;." ^
   --add-binary "%SEVENZIP%7z.dll;." ^
