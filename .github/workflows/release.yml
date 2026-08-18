@@ -49,6 +49,7 @@ jobs:
         run: |
           $z = "${{ steps.sevenzip.outputs.dir }}"
           python -m PyInstaller --noconfirm --clean --onefile --console `
+            --python-option "X utf8" `
             --name ed2k-extractor `
             --add-binary "$z\7z.exe;." `
             --add-binary "$z\7z.dll;." `
