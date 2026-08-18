@@ -1,0 +1,99 @@
+name: Build and Release Windows EXE
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  INITIAL_RELEASE_TAG: v1.0.0
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          choco install 7zip -y --no-progress
+
+      - name: Locate 7-Zip
+        id: sevenzip
+        shell: pwsh
+        run: |
+          $dir = "C:\Program Files\7-Zip"
+          if (!(Test-Path "$dir\7z.exe") -or !(Test-Path "$dir\7z.dll")) {
+            throw "7-Zip executable or DLL not found"
+          }
+          "dir=$dir" >> $env:GITHUB_OUTPUT
+
+      - name: Build single-file EXE
+        shell: pwsh
+        run: |
+          $z = "${{ steps.sevenzip.outputs.dir }}"
+          python -m PyInstaller --noconfirm --clean --onefile --console `
+            --name ed2k-extractor `
+            --add-binary "$z\7z.exe;." `
+            --add-binary "$z\7z.dll;." `
+            ed2k_extractor.py
+
+      - name: Smoke test EXE
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force smoke | Out-Null
+          Set-Content -Path smoke\sample.txt -Encoding UTF8 -Value @(
+            'ed2k://|file|sample.mp4|123|0123456789ABCDEF0123456789ABCDEF|/'
+          )
+          Copy-Item dist\ed2k-extractor.exe smoke\ed2k-extractor.exe
+          cmd /c "echo.| smoke\ed2k-extractor.exe smoke\sample.txt"
+          if (!(Test-Path smoke\@ed2k.txt)) { throw "@ed2k.txt was not created" }
+          $content = Get-Content smoke\@ed2k.txt -Raw
+          if ($content -notmatch 'ed2k://\|file\|sample\.mp4') { throw "ED2K extraction smoke test failed" }
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ed2k-extractor-windows
+          path: dist/ed2k-extractor.exe
+          if-no-files-found: error
+
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist\ed2k-extractor.exe --title "${{ github.ref_name }}" --generate-notes
+
+      - name: Publish initial v1.0.0 release
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$env:INITIAL_RELEASE_TAG" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $env:INITIAL_RELEASE_TAG already exists; skipping."
+            exit 0
+          }
+          gh release create "$env:INITIAL_RELEASE_TAG" dist\ed2k-extractor.exe `
+            --target "${{ github.sha }}" `
+            --title "ED2K Extractor v1.0.0" `
+            --notes "首个发布版：支持 TXT/ZIP/RAR 拖拽与目录扫描；RAR5/Unicode/分卷首卷；内置 7-Zip；ED2K 自动去重；输出到 EXE 同目录的 @ed2k.txt。"
